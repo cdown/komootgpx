@@ -64,10 +64,8 @@ fn parse_komoot_html(html: &str) -> Result<Vec<Waypoint>> {
     }
 }
 
-fn make_gpx(waypoints: &[Waypoint]) -> Gpx {
-    let segment = TrackSegment {
-        points: waypoints.to_vec(),
-    };
+fn make_gpx(waypoints: Vec<Waypoint>) -> Gpx {
+    let segment = TrackSegment { points: waypoints };
 
     let track = Track {
         segments: vec![segment],
@@ -102,7 +100,7 @@ fn main() -> Result<()> {
 
     let response = make_http_request(&args.url)?;
     let coords = parse_komoot_html(&response)?;
-    let gpx = make_gpx(&coords);
+    let gpx = make_gpx(coords);
     write_gpx(&gpx, &args.output.unwrap_or_else(|| "-".to_string()))?;
 
     Ok(())
