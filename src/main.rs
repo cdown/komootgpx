@@ -1,9 +1,12 @@
 use anyhow::Context;
+use anyhow::Result;
+use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
 use regex::Regex;
 use reqwest::header::{HeaderMap, ACCEPT, ACCEPT_LANGUAGE, USER_AGENT};
 use serde_json::Value;
 use std::env;
-use anyhow::Result;
+use std::fs::File;
+use std::io::BufWriter;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -36,7 +39,8 @@ async fn main() -> Result<()> {
     let regex = Regex::new(r#"kmtBoot\.setProps\("(.+?)"\)"#).unwrap();
     let json_str = regex
         .captures(&response)
-        .and_then(|cap| cap.get(1)).context("Cannot find kmtBoot.setProps in HTML")?
+        .and_then(|cap| cap.get(1))
+        .context("Cannot find kmtBoot.setProps in HTML")?
         .as_str();
 
     let json_str = unescape::unescape(json_str).context("Cannot unescape JSON")?;
@@ -45,7 +49,43 @@ async fn main() -> Result<()> {
 
     let coords = &json["page"]["_embedded"]["tour"]["_embedded"]["coordinates"]["items"];
 
-    println!("{:?}", coords);
+    let mut track = Track::new();
+    let segment = TrackSegment::new();
+
+    track.segments = vec![segment];
+
+    let mut gpx = Gpx {
+        version: GpxVersion::Gpx11,
+        creator: None,
+        metadata: None,
+        waypoints: vec![],
+        tracks: vec![track],
+        routes: vec![],
+    };
+
+    if let Some(coords_array) = coords.as_array() {
+        for coord in coords_array {
+            let lat = coord["lat"]
+                .as_f64()
+                .context("Latitude is not a valid number")?;
+            let lng = coord["lng"]
+                .as_f64()
+                .context("Longitude is not a valid number")?;
+            let alt = coord["alt"]
+                .as_f64()
+                .context("Altitude is not a valid number")?;
+
+            let mut waypoint = Waypoint::new(geo_types::Point::new(lng, lat));
+            waypoint.elevation = Some(alt);
+
+            gpx.tracks[0].segments[0].points.push(waypoint);
+        }
+    }
+
+    let gpx_file = File::create("test.gpx")?;
+    let buf = BufWriter::new(gpx_file);
+
+    gpx::write(&gpx, buf)?;
 
     Ok(())
 }
