@@ -1,8 +1,6 @@
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
-use regex::Regex;
-use reqwest::header::{HeaderMap, ACCEPT, ACCEPT_LANGUAGE, USER_AGENT};
 use serde_json::Value;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -18,38 +16,28 @@ struct Args {
     output: Option<String>,
 }
 
-async fn make_http_request(url: &str) -> Result<String> {
-    let client = reqwest::Client::new();
-    let mut headers = HeaderMap::new();
-    headers.insert(USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/<version> Safari/537.36".parse().unwrap());
-    headers.insert(
-        ACCEPT,
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"
-            .parse()
-            .unwrap(),
-    );
-    headers.insert(ACCEPT_LANGUAGE, "en-US,en;q=0.9".parse().unwrap());
+fn make_http_request(url: &str) -> Result<String> {
+    let response = ureq::get(url)
+        .set("User-Agent", "Mozilla/5.0")
+        .set("Accept", "text/html,application/xhtml+xml")
+        .set("Accept-Language", "en-US,en")
+        .call();
 
-    let response = client
-        .get(url)
-        .headers(headers)
-        .send()
-        .await?
-        .text()
-        .await?;
-
-    Ok(response)
+    match response {
+        Ok(res) => Ok(res.into_string()?),
+        Err(e) => bail!("HTTP Request failed: {:?}", e),
+    }
 }
 
 fn parse_komoot_html(html: &str) -> Result<Vec<Waypoint>> {
-    let regex = Regex::new(r#"kmtBoot\.setProps\("(.+?)"\)"#).unwrap();
-    let json_str = regex
-        .captures(html)
-        .and_then(|cap| cap.get(1))
-        .context("Cannot find kmtBoot.setProps in HTML")?
-        .as_str();
-
-    let json_str = unescape::unescape(json_str).context("Cannot unescape JSON")?;
+    let start_marker = "kmtBoot.setProps(\"";
+    let end_marker = "\");";
+    let start = html.find(start_marker).context("Start marker not found")? + start_marker.len();
+    let end = html[start..]
+        .find(end_marker)
+        .context("End marker not found")?
+        + start;
+    let json_str = unescape::unescape(&html[start..end]).context("Cannot unescape JSON")?;
     let json: Value = serde_json::from_str(&json_str)?;
 
     let coords = &json["page"]["_embedded"]["tour"]["_embedded"]["coordinates"]["items"];
@@ -111,11 +99,10 @@ fn write_gpx(gpx: &Gpx, output: &str) -> Result<()> {
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let args = Args::parse();
 
-    let response = make_http_request(&args.url).await?;
+    let response = make_http_request(&args.url)?;
     let coords = parse_komoot_html(&response)?;
     let gpx = make_gpx(&coords);
     write_gpx(&gpx, &args.output.unwrap_or_else(|| "-".to_string()))?;
