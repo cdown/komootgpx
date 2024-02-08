@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
+use std::fs::File;
 use std::io::{BufWriter, Write};
 
 #[derive(Parser, Debug)]
@@ -12,6 +13,11 @@ struct Args {
     /// The GPX file to create. By default (or on "-") print to stdout
     #[clap(short, long)]
     output: Option<String>,
+}
+
+enum Output {
+    Path(String),
+    Stdout,
 }
 
 fn make_http_request(url: &str) -> Result<String> {
@@ -79,12 +85,13 @@ fn make_gpx(waypoints: Vec<Waypoint>) -> Gpx {
     }
 }
 
-fn write_gpx(gpx: &Gpx, output: &str) -> Result<()> {
-    let buf: Box<dyn Write> = if output == "-" {
-        Box::new(BufWriter::new(std::io::stdout()))
-    } else {
-        let file = std::fs::File::create(output)?;
-        Box::new(BufWriter::new(file))
+fn write_gpx(gpx: &Gpx, output: Output) -> Result<()> {
+    let buf: Box<dyn Write> = match output {
+        Output::Path(file_name) => {
+            let file = File::create(file_name)?;
+            Box::new(BufWriter::new(file))
+        }
+        Output::Stdout => Box::new(BufWriter::new(std::io::stdout())),
     };
 
     gpx::write(gpx, buf)?;
@@ -95,10 +102,15 @@ fn write_gpx(gpx: &Gpx, output: &str) -> Result<()> {
 fn main() -> Result<()> {
     let args = Args::parse();
 
+    let output = match args.output.as_deref() {
+        Some("-") | None => Output::Stdout,
+        Some(file_name) => Output::Path(file_name.to_string()),
+    };
+
     let response = make_http_request(&args.url)?;
     let coords = parse_komoot_html(response)?;
     let gpx = make_gpx(coords);
-    write_gpx(&gpx, &args.output.unwrap_or_else(|| "-".to_string()))?;
+    write_gpx(&gpx, output)?;
 
     Ok(())
 }
