@@ -2,8 +2,13 @@
 name = "komootgpx"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Chris Down <chris@chrisdown.name>"]
+description = "Get GPX files from Komoot"
+repository = "https://github.com/cdown/komootgpx"
+readme = "README.md"
+keywords = ["gpx", "hiking", "komoot"]
+categories = ["command-line-utilities"]
+license = "MIT"
 
 [dependencies]
 anyhow = "1.0.79"
