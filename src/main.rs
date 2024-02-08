@@ -65,12 +65,14 @@ fn parse_komoot_html(html: &str) -> Result<Vec<Waypoint>> {
 }
 
 fn make_gpx(waypoints: &[Waypoint]) -> Gpx {
-    let mut track = Track::new();
     let segment = TrackSegment {
         points: waypoints.to_vec(),
     };
 
-    track.segments = vec![segment];
+    let track = Track {
+        segments: vec![segment],
+        ..Default::default()
+    };
 
     Gpx {
         version: GpxVersion::Gpx11,
