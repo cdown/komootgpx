@@ -75,10 +75,8 @@ fn make_gpx(waypoints: Vec<Waypoint>) -> Gpx {
     Gpx {
         version: GpxVersion::Gpx11,
         creator: Some("komootgpx".to_string()),
-        metadata: None,
-        waypoints: vec![],
         tracks: vec![track],
-        routes: vec![],
+        ..Default::default()
     }
 }
 
