@@ -1,8 +1,6 @@
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
-use serde_json::Value;
-use std::fs::File;
 use std::io::{BufWriter, Write};
 
 #[derive(Parser, Debug)]
@@ -25,7 +23,7 @@ fn make_http_request(url: &str) -> Result<String> {
     }
 }
 
-fn parse_komoot_html(html: &str) -> Result<Vec<Waypoint>> {
+fn parse_komoot_html(html: String) -> Result<Vec<Waypoint>> {
     let start_marker = "kmtBoot.setProps(\"";
     let end_marker = "\");";
     let start = html.find(start_marker).context("Start marker not found")? + start_marker.len();
@@ -33,8 +31,9 @@ fn parse_komoot_html(html: &str) -> Result<Vec<Waypoint>> {
         .find(end_marker)
         .context("End marker not found")?
         + start;
+
     let json_str = unescape::unescape(&html[start..end]).context("Cannot unescape JSON")?;
-    let json: Value = serde_json::from_str(&json_str)?;
+    let json: serde_json::Value = serde_json::from_str(&json_str)?;
 
     let coords = &json["page"]["_embedded"]["tour"]["_embedded"]["coordinates"]["items"];
 
@@ -84,7 +83,7 @@ fn write_gpx(gpx: &Gpx, output: &str) -> Result<()> {
     let buf: Box<dyn Write> = if output == "-" {
         Box::new(BufWriter::new(std::io::stdout()))
     } else {
-        let file = File::create(output)?;
+        let file = std::fs::File::create(output)?;
         Box::new(BufWriter::new(file))
     };
 
@@ -97,7 +96,7 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     let response = make_http_request(&args.url)?;
-    let coords = parse_komoot_html(&response)?;
+    let coords = parse_komoot_html(response)?;
     let gpx = make_gpx(coords);
     write_gpx(&gpx, &args.output.unwrap_or_else(|| "-".to_string()))?;
 
