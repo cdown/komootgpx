@@ -19,7 +19,7 @@ fn make_http_request(url: &str) -> Result<String> {
 
     match response {
         Ok(res) => Ok(res.into_string()?),
-        Err(e) => bail!("HTTP Request failed: {:?}", e),
+        Err(e) => bail!("HTTP request failed: {:?}", e),
     }
 }
 
