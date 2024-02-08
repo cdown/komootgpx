@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
 use regex::Regex;
@@ -76,7 +76,7 @@ fn parse_komoot_html(html: &str) -> Result<Vec<Waypoint>> {
 
         Ok(waypoints)
     } else {
-        Err(anyhow::anyhow!("Coordinates are not an array"))
+        bail!("Coordinates are not an array")
     }
 }
 
