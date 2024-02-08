@@ -38,18 +38,18 @@ fn parse_komoot_html(html: String) -> Result<Vec<Waypoint>> {
     let coords = &json["page"]["_embedded"]["tour"]["_embedded"]["coordinates"]["items"];
 
     if let Some(coords_array) = coords.as_array() {
+        fn get_coord(coord: &serde_json::Value, key: &str) -> Result<f64> {
+            coord[key]
+                .as_f64()
+                .context(format!("{key} is not a valid f64"))
+        }
+
         let waypoints = coords_array
             .iter()
             .map(|coord| {
-                let lat = coord["lat"]
-                    .as_f64()
-                    .context("Latitude is not a valid f64")?;
-                let lng = coord["lng"]
-                    .as_f64()
-                    .context("Longitude is not a valid f64")?;
-                let alt = coord["alt"]
-                    .as_f64()
-                    .context("Altitude is not a valid f64")?;
+                let lat = get_coord(coord, "lat")?;
+                let lng = get_coord(coord, "lng")?;
+                let alt = get_coord(coord, "alt")?;
 
                 let mut waypoint = Waypoint::new(geo_types::Point::new(lng, lat));
                 waypoint.elevation = Some(alt);
