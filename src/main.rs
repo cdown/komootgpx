@@ -1,21 +1,29 @@
 use anyhow::Context;
 use anyhow::Result;
+use clap::Parser;
 use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
 use regex::Regex;
 use reqwest::header::{HeaderMap, ACCEPT, ACCEPT_LANGUAGE, USER_AGENT};
 use serde_json::Value;
-use std::env;
 use std::fs::File;
 use std::io::BufWriter;
+use std::io::Write;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// The Komoot URL to make a GPX for
+    url: String,
+
+    /// The GPX file to create. By default (or on "-") print to stdout
+    #[clap(short, long)]
+    output: Option<String>,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Usage: program <URL>");
-        return Ok(());
-    }
-    let url = &args[1];
+    let args = Args::parse();
+    let url = &args.url;
 
     let client = reqwest::Client::new();
     let mut headers = HeaderMap::new();
@@ -67,13 +75,13 @@ async fn main() -> Result<()> {
         for coord in coords_array {
             let lat = coord["lat"]
                 .as_f64()
-                .context("Latitude is not a valid number")?;
+                .context("Latitude is not a valid f64")?;
             let lng = coord["lng"]
                 .as_f64()
-                .context("Longitude is not a valid number")?;
+                .context("Longitude is not a valid f64")?;
             let alt = coord["alt"]
                 .as_f64()
-                .context("Altitude is not a valid number")?;
+                .context("Altitude is not a valid f64")?;
 
             let mut waypoint = Waypoint::new(geo_types::Point::new(lat, lng));
             waypoint.elevation = Some(alt);
@@ -82,8 +90,15 @@ async fn main() -> Result<()> {
         }
     }
 
-    let gpx_file = File::create("test.gpx")?;
-    let buf = BufWriter::new(gpx_file);
+    let output_path = args.output.unwrap_or_else(|| "-".to_string());
+    let buf: Box<dyn Write> = if output_path == "-" {
+        // If output is "-", write to stdout
+        Box::new(BufWriter::new(std::io::stdout()))
+    } else {
+        // Otherwise, write to the specified file
+        let gpx_file = File::create(output_path)?;
+        Box::new(BufWriter::new(gpx_file))
+    };
 
     gpx::write(&gpx, buf)?;
 
