@@ -17,11 +17,7 @@ struct Args {
 }
 
 fn make_http_request(url: &str) -> Result<String> {
-    let response = ureq::get(url)
-        .set("User-Agent", "Mozilla/5.0")
-        .set("Accept", "text/html,application/xhtml+xml")
-        .set("Accept-Language", "en-US,en")
-        .call();
+    let response = ureq::get(url).set("User-Agent", "komootgpx").call();
 
     match response {
         Ok(res) => Ok(res.into_string()?),
