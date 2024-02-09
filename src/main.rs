@@ -29,7 +29,7 @@ fn make_http_request(url: &str) -> Result<String> {
     }
 }
 
-fn parse_komoot_html(html: String) -> Result<Vec<Waypoint>> {
+fn parse_html_to_track(html: String) -> Result<Track> {
     let start_marker = "kmtBoot.setProps(\"";
     let end_marker = "\");";
     let start = html.find(start_marker).context("Start marker not found")? + start_marker.len();
@@ -41,6 +41,11 @@ fn parse_komoot_html(html: String) -> Result<Vec<Waypoint>> {
     let json_str = unescape::unescape(&html[start..end]).context("Cannot unescape JSON")?;
     let json: serde_json::Value = serde_json::from_str(&json_str)?;
 
+    let tour_name = json["page"]["_embedded"]["tour"]["name"]
+        .as_str()
+        .context("Tour name not found")?
+        .to_string();
+
     let coords = &json["page"]["_embedded"]["tour"]["_embedded"]["coordinates"]["items"];
 
     if let Some(coords_array) = coords.as_array() {
@@ -49,7 +54,6 @@ fn parse_komoot_html(html: String) -> Result<Vec<Waypoint>> {
                 .as_f64()
                 .context(format!("{key} is not a valid f64"))
         }
-
         let waypoints = coords_array
             .iter()
             .map(|coord| {
@@ -63,29 +67,28 @@ fn parse_komoot_html(html: String) -> Result<Vec<Waypoint>> {
             })
             .collect::<Result<Vec<Waypoint>>>()?;
 
-        Ok(waypoints)
+        let segment = TrackSegment { points: waypoints };
+
+        let track = Track {
+            name: Some(tour_name),
+            segments: vec![segment],
+            ..Default::default()
+        };
+
+        Ok(track)
     } else {
         bail!("Coordinates are not an array")
     }
 }
 
-fn make_gpx(waypoints: Vec<Waypoint>) -> Gpx {
-    let segment = TrackSegment { points: waypoints };
-
-    let track = Track {
-        segments: vec![segment],
-        ..Default::default()
-    };
-
-    Gpx {
+fn write_gpx(track: Track, output: Output) -> Result<()> {
+    let gpx = Gpx {
         version: GpxVersion::Gpx11,
         creator: Some("komootgpx".to_string()),
         tracks: vec![track],
         ..Default::default()
-    }
-}
+    };
 
-fn write_gpx(gpx: &Gpx, output: Output) -> Result<()> {
     let buf: Box<dyn Write> = match output {
         Output::Path(file_name) => {
             let file = File::create(file_name)?;
@@ -94,7 +97,7 @@ fn write_gpx(gpx: &Gpx, output: Output) -> Result<()> {
         Output::Stdout => Box::new(BufWriter::new(std::io::stdout())),
     };
 
-    gpx::write(gpx, buf)?;
+    gpx::write(&gpx, buf)?;
 
     Ok(())
 }
@@ -108,9 +111,9 @@ fn main() -> Result<()> {
     };
 
     let response = make_http_request(&args.url)?;
-    let coords = parse_komoot_html(response)?;
-    let gpx = make_gpx(coords);
-    write_gpx(&gpx, output)?;
+    let track = parse_html_to_track(response)?;
+
+    write_gpx(track, output)?;
 
     Ok(())
 }
