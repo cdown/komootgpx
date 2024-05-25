@@ -11,11 +11,11 @@ categories = ["command-line-utilities"]
 license = "MIT"
 
 [dependencies]
-anyhow = "1.0.79"
-clap = { version = "4.5.0", features = ["derive"] }
-geo-types = "0.7.12"
+anyhow = "1.0.86"
+clap = { version = "4.5.4", features = ["derive"] }
+geo-types = "0.7.13"
 gpx = "0.10.0"
-serde = "1.0.196"
-serde_json = "1.0.113"
+serde = "1.0.202"
+serde_json = "1.0.117"
 unescape = "0.1.0"
-ureq = "2.9.4"
+ureq = "2.9.7"
