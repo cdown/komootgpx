@@ -29,7 +29,7 @@ fn make_http_request(url: &str) -> Result<String> {
         .map_err(anyhow::Error::from)
 }
 
-fn parse_html_to_track(html: String) -> Result<Track> {
+fn extract_json_from_html(html: String) -> Result<serde_json::Value> {
     let start_marker = "kmtBoot.setProps(\"";
     let end_marker = "\");";
     let start = html.find(start_marker).context("Start marker not found")? + start_marker.len();
@@ -39,8 +39,10 @@ fn parse_html_to_track(html: String) -> Result<Track> {
         + start;
 
     let json_str = unescape::unescape(&html[start..end]).context("Cannot unescape JSON")?;
-    let json: serde_json::Value = serde_json::from_str(&json_str)?;
+    serde_json::from_str(&json_str).map_err(anyhow::Error::from)
+}
 
+fn json_to_track(json: serde_json::Value) -> Result<Track> {
     let tour_name = json["page"]["_embedded"]["tour"]["name"]
         .as_str()
         .context("Tour name not found")?
@@ -111,7 +113,8 @@ fn main() -> Result<()> {
     };
 
     let response = make_http_request(&args.url)?;
-    let track = parse_html_to_track(response)?;
+    let json = extract_json_from_html(response)?;
+    let track = json_to_track(json)?;
 
     write_gpx(track, output)?;
 
