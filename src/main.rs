@@ -21,12 +21,12 @@ enum Output {
 }
 
 fn make_http_request(url: &str) -> Result<String> {
-    let response = ureq::get(url).set("User-Agent", "komootgpx").call();
-
-    match response {
-        Ok(res) => Ok(res.into_string()?),
-        Err(e) => bail!("HTTP request failed: {:?}", e),
-    }
+    ureq::get(url)
+        .set("User-Agent", "komootgpx")
+        .call()
+        .with_context(|| format!("HTTP request to {} failed", url))?
+        .into_string()
+        .map_err(anyhow::Error::from)
 }
 
 fn parse_html_to_track(html: String) -> Result<Track> {
