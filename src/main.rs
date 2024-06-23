@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about)]
 struct Args {
     /// The Komoot URL to make a GPX for
     url: String,
