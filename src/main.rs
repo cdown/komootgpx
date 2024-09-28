@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use clap::Parser;
 use gpx::{Gpx, GpxVersion, Track, TrackSegment, Waypoint};
 use std::fs::File;
@@ -50,37 +50,35 @@ fn json_to_track(json: serde_json::Value) -> Result<Track> {
 
     let coords = &json["page"]["_embedded"]["tour"]["_embedded"]["coordinates"]["items"];
 
-    if let Some(coords_array) = coords.as_array() {
-        fn get_coord(coord: &serde_json::Value, key: &str) -> Result<f64> {
-            coord[key]
-                .as_f64()
-                .context(format!("{key} is not a valid f64"))
-        }
-        let waypoints = coords_array
-            .iter()
-            .map(|coord| {
-                let lat = get_coord(coord, "lat")?;
-                let lng = get_coord(coord, "lng")?;
-                let alt = get_coord(coord, "alt")?;
+    let coords_array = coords.as_array().context("Coordinates are not an array")?;
 
-                let mut waypoint = Waypoint::new(geo_types::Point::new(lng, lat));
-                waypoint.elevation = Some(alt);
-                Ok(waypoint)
-            })
-            .collect::<Result<Vec<Waypoint>>>()?;
-
-        let segment = TrackSegment { points: waypoints };
-
-        let track = Track {
-            name: Some(tour_name),
-            segments: vec![segment],
-            ..Default::default()
-        };
-
-        Ok(track)
-    } else {
-        bail!("Coordinates are not an array")
+    fn get_coord(coord: &serde_json::Value, key: &str) -> Result<f64> {
+        coord[key]
+            .as_f64()
+            .context(format!("{key} is not a valid f64"))
     }
+    let waypoints = coords_array
+        .iter()
+        .map(|coord| {
+            let lat = get_coord(coord, "lat")?;
+            let lng = get_coord(coord, "lng")?;
+            let alt = get_coord(coord, "alt")?;
+
+            let mut waypoint = Waypoint::new(geo_types::Point::new(lng, lat));
+            waypoint.elevation = Some(alt);
+            Ok(waypoint)
+        })
+        .collect::<Result<Vec<Waypoint>>>()?;
+
+    let segment = TrackSegment { points: waypoints };
+
+    let track = Track {
+        name: Some(tour_name),
+        segments: vec![segment],
+        ..Default::default()
+    };
+
+    Ok(track)
 }
 
 fn write_gpx(track: Track, output: Output) -> Result<()> {
