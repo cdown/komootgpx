@@ -11,7 +11,7 @@ categories = ["command-line-utilities"]
 license = "MIT"
 
 [dependencies]
-anyhow = "1.0.91"
+anyhow = "1.0.92"
 clap = { version = "4.5.20", features = ["derive"] }
 geo-types = "0.7.13"
 gpx = "0.10.0"
