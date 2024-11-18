@@ -17,6 +17,6 @@ clap = { version = "4.5.21", features = ["derive"] }
 geo-types = "0.7.13"
 gpx = "0.10.0"
 serde = "1.0.215"
-serde_json = "1.0.132"
+serde_json = "1.0.133"
 unescape = "0.1.0"
 ureq = "2.10.1"
