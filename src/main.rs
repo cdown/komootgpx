@@ -68,7 +68,7 @@ fn json_to_track(json: serde_json::Value) -> Result<Track> {
             waypoint.elevation = Some(alt);
             Ok(waypoint)
         })
-        .collect::<Result<Vec<Waypoint>>>()?;
+        .collect::<Result<Vec<_>>>()?;
 
     let segment = TrackSegment { points: waypoints };
 
