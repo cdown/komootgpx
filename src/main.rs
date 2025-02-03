@@ -15,11 +15,6 @@ struct Args {
     output: Option<String>,
 }
 
-enum Output {
-    Path(String),
-    Stdout,
-}
-
 fn make_http_request(url: &str) -> Result<String> {
     ureq::get(url)
         .set("User-Agent", "komootgpx")
@@ -29,7 +24,7 @@ fn make_http_request(url: &str) -> Result<String> {
         .map_err(anyhow::Error::from)
 }
 
-fn extract_json_from_html(html: String) -> Result<serde_json::Value> {
+fn extract_json_from_html(html: &str) -> Result<serde_json::Value> {
     let start_marker = "kmtBoot.setProps(\"";
     let end_marker = "\");";
     let start = html.find(start_marker).context("Start marker not found")? + start_marker.len();
@@ -81,7 +76,7 @@ fn json_to_track(json: serde_json::Value) -> Result<Track> {
     Ok(track)
 }
 
-fn write_gpx(track: Track, output: Output) -> Result<()> {
+fn write_gpx<W: Write>(track: Track, mut writer: W) -> Result<()> {
     let gpx = Gpx {
         version: GpxVersion::Gpx11,
         creator: Some("komootgpx".to_string()),
@@ -89,32 +84,27 @@ fn write_gpx(track: Track, output: Output) -> Result<()> {
         ..Default::default()
     };
 
-    let buf: Box<dyn Write> = match output {
-        Output::Path(file_name) => {
-            let file = File::create(file_name)?;
-            Box::new(BufWriter::new(file))
-        }
-        Output::Stdout => Box::new(BufWriter::new(std::io::stdout())),
-    };
-
-    gpx::write(&gpx, buf)?;
-
+    gpx::write(&gpx, &mut writer)?;
     Ok(())
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    let output = match args.output.as_deref() {
-        Some("-") | None => Output::Stdout,
-        Some(file_name) => Output::Path(file_name.to_string()),
+    let track = {
+        let response = make_http_request(&args.url)?;
+        let json = extract_json_from_html(&response)?;
+        json_to_track(json)?
     };
 
-    let response = make_http_request(&args.url)?;
-    let json = extract_json_from_html(response)?;
-    let track = json_to_track(json)?;
-
-    write_gpx(track, output)?;
+    match args.output.as_deref() {
+        Some("-") | None => write_gpx(track, BufWriter::new(std::io::stdout()))?,
+        Some(file_name) => {
+            let file = File::create(file_name)
+                .with_context(|| format!("Failed to create file: {file_name}"))?;
+            write_gpx(track, BufWriter::new(file))?
+        }
+    };
 
     Ok(())
 }
