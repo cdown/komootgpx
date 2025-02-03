@@ -17,10 +17,11 @@ struct Args {
 
 fn make_http_request(url: &str) -> Result<String> {
     ureq::get(url)
-        .set("User-Agent", "komootgpx")
+        .header("User-Agent", "komootgpx")
         .call()
         .with_context(|| format!("HTTP request to {} failed", url))?
-        .into_string()
+        .body_mut()
+        .read_to_string()
         .map_err(anyhow::Error::from)
 }
 
